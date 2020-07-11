@@ -70,18 +70,20 @@ class Locker:
 
     def lock(self, name, **kwargs):
         lock_num = self._lock_num(name)
+        kwargs.setdefault('name', name)
         kwargs.setdefault('blocking', self.blocking_default)
         kwargs.setdefault('acquire_timeout', self.acquire_timeout_default)
         return Lock(self.engine.connect(), lock_num, **kwargs)
 
 
 class Lock:
-    def __init__(self, engine, lock_num, blocking=None, acquire_timeout=None):
+    def __init__(self, engine, lock_num, blocking=None, acquire_timeout=None, name=None):
         self.engine = engine
         self.conn = None
         self.lock_num = lock_num
         self.blocking = blocking
         self.acquire_timeout = acquire_timeout
+        self.name = name
 
     def acquire(self, blocking=None, acquire_timeout=None):
         blocking = blocking if blocking is not None else self.blocking
@@ -89,6 +91,9 @@ class Lock:
 
         if self.conn is None:
             self.conn = self.engine.connect()
+
+        if self.name:
+            self.conn.execute(sa.text('SET application_name = :name;'), name=self.name)
 
         if blocking:
             timeout_sql = sa.text('set lock_timeout = :timeout')
